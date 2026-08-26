@@ -5,3 +5,4 @@ export * from "./vehicleTypes";
 export * from "./orderTypes";
 export * from "./tripTypes";
 export * from "./notificationTypes";
+export * from "./common";
