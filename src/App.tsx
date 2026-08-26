@@ -1,14 +1,20 @@
-import { Button } from "@/components/ui/button";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/sonner";
+import Router from "@/routes";
 
-function App() {
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false },
+  },
+});
+
+const App = () => {
   return (
-    <section className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold">Fleet Ops</h1>
-        <Button>Test Button</Button>
-      </div>
-    </section>
+    <QueryClientProvider client={queryClient}>
+      <Toaster />
+      <Router />
+    </QueryClientProvider>
   );
-}
+};
 
 export default App;
