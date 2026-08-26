@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +58,7 @@ function DriversTab() {
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [statusFilter, setStatusFilter] = useState<DriverStatus | "ALL">("ALL");
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useDrivers(
     page,
@@ -73,6 +74,19 @@ function DriversTab() {
     formState: { errors },
   } = useForm<DriverForm>({ resolver: zodResolver(driverSchema) });
 
+  const drivers = data?.content ?? [];
+
+  const filteredDrivers = useMemo(() => {
+    if (!search.trim()) return drivers;
+    const q = search.toLowerCase();
+    return drivers.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        d.phone.includes(q) ||
+        d.licenseNumber.toLowerCase().includes(q),
+    );
+  }, [drivers, search]);
+
   const onSubmit = (data: DriverForm) => {
     createDriver.mutate(data, {
       onSuccess: () => {
@@ -85,11 +99,9 @@ function DriversTab() {
     });
   };
 
-  const drivers = data?.content ?? [];
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Select
           value={statusFilter}
           onValueChange={(v) => {
@@ -163,74 +175,88 @@ function DriversTab() {
         </Dialog>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : drivers.length > 0 ? (
-        <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>License</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {drivers.map((driver) => (
-                <TableRow key={driver.id}>
-                  <TableCell className="font-medium">{driver.name}</TableCell>
-                  <TableCell>{driver.phone}</TableCell>
-                  <TableCell>{driver.licenseNumber}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={driver.status}
-                      onValueChange={(v) =>
-                        updateStatus.mutate(
-                          { id: driver.id, status: v as DriverStatus },
-                          {
-                            onSuccess: () => toast.success("Status updated"),
-                            onError: (err: any) =>
-                              toast.error(
-                                err.response?.data?.detail ?? "Update failed",
-                              ),
-                          },
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-36">
-                        <SelectValue>
-                          <StatusBadge status={driver.status} />
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent alignItemWithTrigger={false}>
-                        {DRIVER_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s.replace("_", " ")}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
+      <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-4">
+        {!isLoading && drivers.length > 0 && (
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, phone, or license..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : filteredDrivers.length > 0 ? (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>License</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Pagination
-            page={page}
-            totalPages={data?.totalPages ?? 0}
-            onPageChange={setPage}
+              </TableHeader>
+              <TableBody>
+                {filteredDrivers.map((driver) => (
+                  <TableRow key={driver.id}>
+                    <TableCell className="font-medium">{driver.name}</TableCell>
+                    <TableCell>{driver.phone}</TableCell>
+                    <TableCell>{driver.licenseNumber}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={driver.status}
+                        onValueChange={(v) =>
+                          updateStatus.mutate(
+                            { id: driver.id, status: v as DriverStatus },
+                            {
+                              onSuccess: () => toast.success("Status updated"),
+                              onError: (err: any) =>
+                                toast.error(
+                                  err.response?.data?.detail ?? "Update failed",
+                                ),
+                            },
+                          )
+                        }
+                      >
+                        <SelectTrigger className="w-36">
+                          <SelectValue>
+                            <StatusBadge status={driver.status} />
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent alignItemWithTrigger={false}>
+                          {DRIVER_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s.replace("_", " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Pagination
+              page={page}
+              totalPages={data?.totalPages ?? 0}
+              onPageChange={setPage}
+            />
+          </>
+        ) : (
+          <EmptyState
+            title="No drivers found"
+            description="Add a driver to get started."
           />
-        </>
-      ) : (
-        <EmptyState
-          title="No drivers found"
-          description="Add a driver to get started."
-        />
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -241,6 +267,7 @@ function VehiclesTab() {
   const [statusFilter, setStatusFilter] = useState<VehicleStatus | "ALL">(
     "ALL",
   );
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useVehicles(
     page,
@@ -256,6 +283,14 @@ function VehiclesTab() {
     formState: { errors },
   } = useForm<VehicleForm>({ resolver: zodResolver(vehicleSchema) });
 
+  const vehicles = data?.content ?? [];
+
+  const filteredVehicles = useMemo(() => {
+    if (!search.trim()) return vehicles;
+    const q = search.toLowerCase();
+    return vehicles.filter((v) => v.plateNumber.toLowerCase().includes(q));
+  }, [vehicles, search]);
+
   const onSubmit = (data: VehicleForm) => {
     createVehicle.mutate(data, {
       onSuccess: () => {
@@ -268,11 +303,9 @@ function VehiclesTab() {
     });
   };
 
-  const vehicles = data?.content ?? [];
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Select
           value={statusFilter}
           onValueChange={(v) => {
@@ -354,76 +387,90 @@ function VehiclesTab() {
         </Dialog>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : vehicles.length > 0 ? (
-        <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Plate Number</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Capacity (kg)</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vehicles.map((vehicle) => (
-                <TableRow key={vehicle.id}>
-                  <TableCell className="font-medium">
-                    {vehicle.plateNumber}
-                  </TableCell>
-                  <TableCell>{vehicle.vehicleType}</TableCell>
-                  <TableCell>{vehicle.capacityKg}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={vehicle.status}
-                      onValueChange={(v) =>
-                        updateStatus.mutate(
-                          { id: vehicle.id, status: v as VehicleStatus },
-                          {
-                            onSuccess: () => toast.success("Status updated"),
-                            onError: (err: any) =>
-                              toast.error(
-                                err.response?.data?.detail ?? "Update failed",
-                              ),
-                          },
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-36">
-                        <SelectValue>
-                          <StatusBadge status={vehicle.status} />
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent alignItemWithTrigger={false}>
-                        {VEHICLE_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s.replace("_", " ")}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
+      <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-4">
+        {!isLoading && vehicles.length > 0 && (
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by plate number..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : filteredVehicles.length > 0 ? (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plate Number</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Capacity (kg)</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Pagination
-            page={page}
-            totalPages={data?.totalPages ?? 0}
-            onPageChange={setPage}
+              </TableHeader>
+              <TableBody>
+                {filteredVehicles.map((vehicle) => (
+                  <TableRow key={vehicle.id}>
+                    <TableCell className="font-medium">
+                      {vehicle.plateNumber}
+                    </TableCell>
+                    <TableCell>{vehicle.vehicleType}</TableCell>
+                    <TableCell>{vehicle.capacityKg}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={vehicle.status}
+                        onValueChange={(v) =>
+                          updateStatus.mutate(
+                            { id: vehicle.id, status: v as VehicleStatus },
+                            {
+                              onSuccess: () => toast.success("Status updated"),
+                              onError: (err: any) =>
+                                toast.error(
+                                  err.response?.data?.detail ?? "Update failed",
+                                ),
+                            },
+                          )
+                        }
+                      >
+                        <SelectTrigger className="w-36">
+                          <SelectValue>
+                            <StatusBadge status={vehicle.status} />
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent alignItemWithTrigger={false}>
+                          {VEHICLE_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s.replace("_", " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Pagination
+              page={page}
+              totalPages={data?.totalPages ?? 0}
+              onPageChange={setPage}
+            />
+          </>
+        ) : (
+          <EmptyState
+            title="No vehicles found"
+            description="Add a vehicle to get started."
           />
-        </>
-      ) : (
-        <EmptyState
-          title="No vehicles found"
-          description="Add a vehicle to get started."
-        />
-      )}
+        )}
+      </div>
     </div>
   );
 }

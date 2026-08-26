@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Pagination } from "@/components/shared/Pagination";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import {
   useCustomers,
   useCreateCustomer,
@@ -33,7 +34,6 @@ import {
 } from "@/hooks/useCustomers";
 import { customerSchema, type CustomerForm } from "@/schemas/customerSchema";
 import type { Customer } from "@/types";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 export default function CustomersPage() {
   const [open, setOpen] = useState(false);
@@ -132,7 +132,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Customers</h1>
           {data && <Badge variant="secondary">{data.totalElements}</Badge>}
@@ -199,97 +199,101 @@ export default function CustomersPage() {
             </form>
           </DialogContent>
         </Dialog>
-
-        <ConfirmDialog
-          open={!!deleteTarget}
-          onOpenChange={(open) => !open && setDeleteTarget(null)}
-          title="Delete customer"
-          description={
-            deleteTarget
-              ? `Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`
-              : ""
-          }
-          confirmLabel="Delete"
-          onConfirm={confirmDelete}
-          isLoading={deleteCustomer.isPending}
-        />
       </div>
 
-      {!isLoading && customers.length > 0 && (
-        <div className="relative max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, phone, or address..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-      )}
+      <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-4">
+        {!isLoading && customers.length > 0 && (
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, phone, or address..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        )}
 
-      {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : filteredCustomers.length > 0 ? (
-        <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead className="w-20"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell>{customer.phone}</TableCell>
-                  <TableCell>{customer.email || "—"}</TableCell>
-                  <TableCell>{customer.address}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(customer)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteTarget(customer)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : filteredCustomers.length > 0 ? (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Pagination
-            page={page}
-            totalPages={data?.totalPages ?? 0}
-            onPageChange={setPage}
+              </TableHeader>
+              <TableBody>
+                {filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell className="font-medium">
+                      {customer.name}
+                    </TableCell>
+                    <TableCell>{customer.phone}</TableCell>
+                    <TableCell>{customer.email || "—"}</TableCell>
+                    <TableCell>{customer.address}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(customer)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteTarget(customer)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Pagination
+              page={page}
+              totalPages={data?.totalPages ?? 0}
+              onPageChange={setPage}
+            />
+          </>
+        ) : (
+          <EmptyState
+            title={search ? "No matches found" : "No customers yet"}
+            description={
+              search
+                ? "Try a different search term."
+                : "Create your first customer to get started."
+            }
           />
-        </>
-      ) : (
-        <EmptyState
-          title={search ? "No matches found" : "No customers yet"}
-          description={
-            search
-              ? "Try a different search term."
-              : "Create your first customer to get started."
-          }
-        />
-      )}
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete customer"
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        onConfirm={confirmDelete}
+        isLoading={deleteCustomer.isPending}
+      />
     </div>
   );
 }
