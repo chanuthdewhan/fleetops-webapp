@@ -1,4 +1,3 @@
-// src/pages/dashboard/DashboardPage.tsx
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -123,7 +122,6 @@ function OrderCard({ order }: { order: Order }) {
 
 export default function DashboardPage() {
   const [open, setOpen] = useState(false);
-
   const { data: board, isLoading } = useOrders(0, undefined, 50);
   const { data: pendingCount } = useOrders(0, "PENDING", 1);
   const { data: assignedCount } = useOrders(0, "ASSIGNED", 1);
@@ -136,11 +134,17 @@ export default function DashboardPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     reset,
     formState: { errors },
   } = useForm<OrderFormInput, unknown, OrderForm>({
     resolver: zodResolver(orderSchema),
   });
+
+  const selectedCustomerId = watch("customerId");
+  const selectedCustomer = customersData?.content.find(
+    (c) => c.id === selectedCustomerId,
+  );
 
   const columns = useMemo(() => {
     const grouped: Record<OrderStatus, Order[]> = {
@@ -214,10 +218,15 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 <Label>Customer</Label>
                 <Select
+                  value={
+                    selectedCustomerId ? String(selectedCustomerId) : undefined
+                  }
                   onValueChange={(v) => setValue("customerId", Number(v))}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a customer" />
+                    <SelectValue placeholder="Select a customer">
+                      {selectedCustomer?.name ?? "Select a customer"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     {customersData?.content.map((c) => (
@@ -276,13 +285,11 @@ export default function DashboardPage() {
           </DialogContent>
         </Dialog>
       </div>
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {counts.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}
       </div>
-
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[0, 1, 2, 3].map((i) => (
