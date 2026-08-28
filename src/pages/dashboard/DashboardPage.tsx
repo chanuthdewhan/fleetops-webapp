@@ -1,9 +1,17 @@
-import { useState } from "react";
+// src/pages/dashboard/DashboardPage.tsx
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Clock,
+  UserCheck,
+  Truck,
+  CheckCircle2,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,27 +29,106 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { Pagination } from "@/components/shared/Pagination";
 import { useOrders, useCreateOrder } from "@/hooks/useOrders";
 import { useCustomers } from "@/hooks/useCustomers";
-import { orderSchema, type OrderForm } from "@/schemas/orderSchema";
+import {
+  orderSchema,
+  type OrderForm,
+  type OrderFormInput,
+} from "@/schemas/orderSchema";
+import type { Order, OrderStatus } from "@/types";
+import { cn } from "@/lib/utils";
+
+const COLUMNS: {
+  status: OrderStatus;
+  label: string;
+  icon: typeof Clock;
+  accent: string;
+}[] = [
+  {
+    status: "PENDING",
+    label: "Pending",
+    icon: Clock,
+    accent: "text-slate-500",
+  },
+  {
+    status: "ASSIGNED",
+    label: "Assigned",
+    icon: UserCheck,
+    accent: "text-blue-500",
+  },
+  {
+    status: "IN_TRANSIT",
+    label: "In Transit",
+    icon: Truck,
+    accent: "text-amber-500",
+  },
+  {
+    status: "DELIVERED",
+    label: "Delivered",
+    icon: CheckCircle2,
+    accent: "text-emerald-500",
+  },
+];
+
+function StatCard({
+  label,
+  count,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  count: number;
+  icon: typeof Clock;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background p-4 shadow-sm flex items-center gap-3">
+      <div
+        className={cn(
+          "h-9 w-9 rounded-lg bg-muted flex items-center justify-center",
+          accent,
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <p className="text-2xl font-semibold leading-none">{count}</p>
+        <p className="text-xs text-muted-foreground mt-1">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function OrderCard({ order }: { order: Order }) {
+  return (
+    <Link
+      to={`/orders/${order.id}`}
+      className="block rounded-lg border border-border bg-background p-3 hover:border-primary/50 hover:shadow-sm transition-all"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          #{order.id}
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium mt-1">{order.customerName}</p>
+      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+        {order.pickupAddress} → {order.dropoffAddress}
+      </p>
+    </Link>
+  );
+}
 
 export default function DashboardPage() {
   const [open, setOpen] = useState(false);
-  const [page, setPage] = useState(0);
 
-  const { data, isLoading } = useOrders(page);
+  const { data: board, isLoading } = useOrders(0, undefined, 50);
+  const { data: pendingCount } = useOrders(0, "PENDING", 1);
+  const { data: assignedCount } = useOrders(0, "ASSIGNED", 1);
+  const { data: transitCount } = useOrders(0, "IN_TRANSIT", 1);
+  const { data: deliveredCount } = useOrders(0, "DELIVERED", 1);
   const { data: customersData } = useCustomers(0);
   const createOrder = useCreateOrder();
 
@@ -51,9 +138,48 @@ export default function DashboardPage() {
     setValue,
     reset,
     formState: { errors },
-  } = useForm<OrderForm>({ resolver: zodResolver(orderSchema) });
+  } = useForm<OrderFormInput, unknown, OrderForm>({
+    resolver: zodResolver(orderSchema),
+  });
 
-  const orders = data?.content ?? [];
+  const columns = useMemo(() => {
+    const grouped: Record<OrderStatus, Order[]> = {
+      PENDING: [],
+      ASSIGNED: [],
+      IN_TRANSIT: [],
+      DELIVERED: [],
+      CANCELLED: [],
+    };
+    board?.content.forEach((o) => grouped[o.status]?.push(o));
+    return grouped;
+  }, [board]);
+
+  const counts = [
+    {
+      label: "Pending",
+      count: pendingCount?.totalElements ?? 0,
+      icon: Clock,
+      accent: "text-slate-500",
+    },
+    {
+      label: "Assigned",
+      count: assignedCount?.totalElements ?? 0,
+      icon: UserCheck,
+      accent: "text-blue-500",
+    },
+    {
+      label: "In Transit",
+      count: transitCount?.totalElements ?? 0,
+      icon: Truck,
+      accent: "text-amber-500",
+    },
+    {
+      label: "Delivered",
+      count: deliveredCount?.totalElements ?? 0,
+      icon: CheckCircle2,
+      accent: "text-emerald-500",
+    },
+  ];
 
   const onSubmit = (data: OrderForm) => {
     createOrder.mutate(data, {
@@ -151,60 +277,45 @@ export default function DashboardPage() {
         </Dialog>
       </div>
 
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-4">
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : orders.length > 0 ? (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">#{order.id}</TableCell>
-                    <TableCell>{order.customerName}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {order.pickupAddress} → {order.dropoffAddress}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={order.status} />
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link to={`/orders/${order.id}`}>
-                          <ChevronRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Pagination
-              page={page}
-              totalPages={data?.totalPages ?? 0}
-              onPageChange={setPage}
-            />
-          </>
-        ) : (
-          <EmptyState
-            title="No orders yet"
-            description="Create your first order to get started."
-          />
-        )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {counts.map((c) => (
+          <StatCard key={c.label} {...c} />
+        ))}
       </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-64 w-full" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {COLUMNS.map(({ status, label, icon: Icon, accent }) => (
+            <div
+              key={status}
+              className="rounded-xl border border-border bg-muted/40 p-3 space-y-3"
+            >
+              <div className="flex items-center gap-2 px-1">
+                <Icon className={cn("h-4 w-4", accent)} />
+                <h2 className="text-sm font-semibold">{label}</h2>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {columns[status].length}
+                </span>
+              </div>
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                {columns[status].length > 0 ? (
+                  columns[status].map((o) => <OrderCard key={o.id} order={o} />)
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    No orders
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

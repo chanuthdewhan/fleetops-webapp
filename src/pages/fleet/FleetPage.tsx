@@ -44,7 +44,11 @@ import {
   useUpdateVehicleStatus,
 } from "@/hooks/useVehicles";
 import { driverSchema, type DriverForm } from "@/schemas/driverSchema";
-import { vehicleSchema, type VehicleForm } from "@/schemas/vehicleSchema";
+import {
+  vehicleSchema,
+  type VehicleForm,
+  type VehicleFormInput,
+} from "@/schemas/vehicleSchema";
 import type { DriverStatus, VehicleStatus } from "@/types";
 
 const DRIVER_STATUSES: DriverStatus[] = ["AVAILABLE", "ON_TRIP", "OFF_DUTY"];
@@ -281,7 +285,9 @@ function VehiclesTab() {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<VehicleForm>({ resolver: zodResolver(vehicleSchema) });
+  } = useForm<VehicleFormInput, unknown, VehicleForm>({
+    resolver: zodResolver(vehicleSchema),
+  });
 
   const vehicles = data?.content ?? [];
 
