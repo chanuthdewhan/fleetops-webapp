@@ -5,5 +5,5 @@ export const vehicleSchema = z.object({
   vehicleType: z.enum(["VAN", "TRUCK", "BIKE"]),
   capacityKg: z.coerce.number().positive("Must be a positive number"),
 });
-
-export type VehicleForm = z.infer<typeof vehicleSchema>;
+export type VehicleFormInput = z.input<typeof vehicleSchema>;
+export type VehicleForm = z.output<typeof vehicleSchema>;

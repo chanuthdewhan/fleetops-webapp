@@ -6,4 +6,5 @@ export const orderSchema = z.object({
   dropoffAddress: z.string().min(1, "Dropoff address is required"),
   weightKg: z.coerce.number().positive("Must be a positive number"),
 });
-export type OrderForm = z.infer<typeof orderSchema>;
+export type OrderFormInput = z.input<typeof orderSchema>;
+export type OrderForm = z.output<typeof orderSchema>;

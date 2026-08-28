@@ -1,16 +1,17 @@
 import { z } from "zod";
 
 export const startTripSchema = z.object({
-  orderId: z.coerce.number().min(1, "Order ID is required"),
-  driverId: z.coerce.number().min(1, "Driver ID is required"),
-  vehicleId: z.coerce.number().min(1, "Vehicle ID is required"),
+  driverId: z.coerce.number().min(1, "Select a driver"),
+  vehicleId: z.coerce.number().min(1, "Select a vehicle"),
 });
-export type StartTripForm = z.infer<typeof startTripSchema>;
+export type StartTripFormInput = z.input<typeof startTripSchema>;
+export type StartTripForm = z.output<typeof startTripSchema>;
 
 export const addEventSchema = z.object({
-  type: z.enum(["LOCATION", "STATUS_CHANGE"]),
+  type: z.enum(["LOCATION", "STATUS_CHANGE"]).optional(),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
   note: z.string().optional(),
 });
-export type AddEventForm = z.infer<typeof addEventSchema>;
+export type AddEventFormInput = z.input<typeof addEventSchema>;
+export type AddEventForm = z.output<typeof addEventSchema>;
