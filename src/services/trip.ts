@@ -24,3 +24,12 @@ export const uploadProofOfDelivery = (tripId: string, file: File) => {
 
 export const completeTrip = (tripId: string) =>
   apiClient.patch<Trip>(`/trips/${tripId}/complete`).then((res) => res.data);
+
+export const getProofOfDeliveryUrl = async (
+  tripId: string,
+): Promise<string> => {
+  const res = await apiClient.get(`/trips/${tripId}/proof-of-delivery/file`, {
+    responseType: "blob",
+  });
+  return URL.createObjectURL(res.data);
+};
