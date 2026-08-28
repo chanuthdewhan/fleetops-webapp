@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getOrder, assignOrder } from "@/services/order";
-import type { AssignmentRequest } from "@/types";
+import {
+  getOrder,
+  assignOrder,
+  createOrder,
+  getOrders,
+} from "@/services/order";
+import type { AssignmentRequest, OrderRequest, OrderStatus } from "@/types";
 
 export const useOrder = (id: number) =>
   useQuery({
@@ -23,5 +28,21 @@ export const useAssignOrder = () => {
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     },
+  });
+};
+
+export const useOrders = (page: number, status?: OrderStatus, size = 10) =>
+  useQuery({
+    queryKey: ["orders", "list", page, size, status],
+    queryFn: () => getOrders(page, size, status),
+    placeholderData: (prev) => prev,
+  });
+
+export const useCreateOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: OrderRequest) => createOrder(data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["orders", "list"] }),
   });
 };
