@@ -53,6 +53,7 @@ export const useCompleteTrip = (orderId: number) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trips", "order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders", "list"] });
     },
   });
 };

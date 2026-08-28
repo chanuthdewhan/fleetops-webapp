@@ -25,6 +25,7 @@ export const useAssignOrder = () => {
     }) => assignOrder(orderId, data),
     onSuccess: (_, { orderId }) => {
       queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders", "list"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     },

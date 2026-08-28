@@ -1,4 +1,4 @@
-// src/pages/orders/OrderDetailPage.tsx
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useParams, Link } from "react-router-dom";
@@ -28,9 +28,11 @@ import { useOrder, useAssignOrder } from "@/hooks/useOrders";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useTripsByOrder } from "@/hooks/useTrips";
+import { getProofOfDeliveryUrl } from "@/services/trip";
 import {
   assignmentSchema,
   type AssignmentForm,
+  type AssignmentFormInput,
 } from "@/schemas/assignmentSchema";
 
 export default function OrderDetailPage() {
@@ -42,13 +44,38 @@ export default function OrderDetailPage() {
   const { data: availableVehicles } = useVehicles(0, "AVAILABLE", 100);
   const { data: trips, isLoading: tripsLoading } = useTripsByOrder(orderId);
   const assignOrder = useAssignOrder();
+  const [podImageUrl, setPodImageUrl] = useState<string | null>(null);
 
   const {
     handleSubmit,
     setValue,
     watch,
     formState: { errors },
-  } = useForm<AssignmentForm>({ resolver: zodResolver(assignmentSchema) });
+  } = useForm<AssignmentFormInput, unknown, AssignmentForm>({
+    resolver: zodResolver(assignmentSchema),
+  });
+
+  // Computed before any early return, so the useEffect below can safely depend on it
+  const activeTrip = trips?.find(
+    (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED",
+  );
+  const trip = activeTrip ?? trips?.[trips.length - 1];
+
+  // Must sit above any conditional return — Rules of Hooks
+  useEffect(() => {
+    if (trip?.proofOfDelivery && trip.id) {
+      getProofOfDeliveryUrl(trip.id).then(setPodImageUrl);
+    }
+  }, [trip?.id, trip?.proofOfDelivery]);
+
+  const selectedDriverId = watch("driverId");
+  const selectedVehicleId = watch("vehicleId");
+  const selectedDriver = availableDrivers?.content.find(
+    (d) => d.id === selectedDriverId,
+  );
+  const selectedVehicle = availableVehicles?.content.find(
+    (v) => v.id === selectedVehicleId,
+  );
 
   const onSubmit = (data: AssignmentForm) => {
     assignOrder.mutate(
@@ -74,26 +101,21 @@ export default function OrderDetailPage() {
     return <EmptyState title="Order not found" />;
   }
 
-  const activeTrip = trips?.find(
-    (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED",
-  );
-  const trip = activeTrip ?? trips?.[trips.length - 1];
-
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link to="/dashboard">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Order #{order.id}</h1>
           <StatusBadge status={order.status} />
         </div>
       </div>
 
-      {/* Order details panel */}
       <div className="rounded-xl border border-border bg-background p-5 shadow-sm space-y-4">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Order Details
@@ -130,7 +152,6 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* Assignment panel — conditional on order status */}
       <div className="rounded-xl border border-border bg-background p-5 shadow-sm space-y-4">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Assignment
@@ -141,9 +162,16 @@ export default function OrderDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Driver</Label>
-                <Select onValueChange={(v) => setValue("driverId", Number(v))}>
+                <Select
+                  value={
+                    selectedDriverId ? String(selectedDriverId) : undefined
+                  }
+                  onValueChange={(v) => setValue("driverId", Number(v))}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a driver" />
+                    <SelectValue placeholder="Select a driver">
+                      {selectedDriver?.name ?? "Select a driver"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     {availableDrivers?.content.length ? (
@@ -168,9 +196,18 @@ export default function OrderDetailPage() {
 
               <div className="space-y-2">
                 <Label>Vehicle</Label>
-                <Select onValueChange={(v) => setValue("vehicleId", Number(v))}>
+                <Select
+                  value={
+                    selectedVehicleId ? String(selectedVehicleId) : undefined
+                  }
+                  onValueChange={(v) => setValue("vehicleId", Number(v))}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a vehicle" />
+                    <SelectValue placeholder="Select a vehicle">
+                      {selectedVehicle
+                        ? `${selectedVehicle.plateNumber} (${selectedVehicle.vehicleType})`
+                        : "Select a vehicle"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     {availableVehicles?.content.length ? (
@@ -206,7 +243,6 @@ export default function OrderDetailPage() {
         )}
       </div>
 
-      {/* Trip progress panel — read-only */}
       <div className="rounded-xl border border-border bg-background p-5 shadow-sm space-y-4">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Trip Progress
@@ -258,11 +294,13 @@ export default function OrderDetailPage() {
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   Proof of Delivery
                 </p>
-                <img
-                  src={`${import.meta.env.VITE_API_BASE_URL?.replace("/api/v1", "")}${trip.proofOfDelivery.fileUrl}`}
-                  alt="Proof of delivery"
-                  className="max-w-xs rounded-lg border border-border"
-                />
+                {podImageUrl && (
+                  <img
+                    src={podImageUrl}
+                    alt="Proof of delivery"
+                    className="max-w-xs rounded-lg border border-border"
+                  />
+                )}
               </div>
             )}
           </div>
